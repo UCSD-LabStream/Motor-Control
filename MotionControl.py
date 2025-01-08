@@ -41,7 +41,7 @@ def main():
         time.sleep(1)
 
         # Set up the device to convert real units to device units
-        STEPS_PER_REV = c_double(2000.00)  # for the PRM1-Z8
+        STEPS_PER_REV = c_double(20000.00)  # for the PRM1-Z8
         STEPS_PER_DEGREE = 2000.00/360.00
         gbox_ratio = c_double(1.0)  # gearbox ratio
         pitch = c_double(1.0)
@@ -96,7 +96,7 @@ def main():
                                            dev_pos1,
                                            byref(real_pos),
                                            0)
-
+            #user_input = real_pos.value + 10
             if (real_pos.value != user_input):
                 new_pos_dev = c_int()
                 lib.CC_GetDeviceUnitFromRealValue(serial_num,
@@ -112,10 +112,31 @@ def main():
                     response = requests.post(IN_PROGRESS_URL)
                 print("finished sending response")
 
+                new_jog_dev = c_int()
+                lib.CC_GetDeviceUnitFromRealValue(serial_num,
+                                            c_double(1.75),
+                                            byref(new_jog_dev),
+                                            0)
                 # Move to new position as an absolute move.
                 lib.CC_SetMoveAbsolutePosition(serial_num, new_pos_dev)
+                lib.CC_SetJogStepSize(serial_num, new_jog_dev)
                 time.sleep(0.25)
-                lib.CC_MoveAbsolute(serial_num)
+                print("hey")
+                x = 12
+                while(x > 0):
+                    print("jogging")
+                    lib.CC_MoveJog(serial_num, 2)
+                    time.sleep(0.95)
+                    dev_pos1 = c_int(lib.CC_GetPosition(serial_num))
+                    real_pos = c_double()
+                    lib.CC_GetRealValueFromDeviceUnit(serial_num,
+                                            dev_pos1,
+                                            byref(real_pos),
+                                            0)
+                    if real_pos.value > 20.7:
+                        break
+                    x-=1
+                #lib.CC_MoveAbsolute(serial_num)
                 dev_pos1 = c_int(lib.CC_GetPosition(serial_num))
                 real_pos = c_double()
                 lib.CC_GetRealValueFromDeviceUnit(serial_num,

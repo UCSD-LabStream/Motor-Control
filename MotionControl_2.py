@@ -42,8 +42,8 @@ def main():
         time.sleep(1)
 
         # Set up the device to convert real units to device units
-        STEPS_PER_REV = c_double(2000.00)  # for the PRM1-Z8
-        STEPS_PER_REV_SLOW = c_double(200.00)
+        STEPS_PER_REV = c_double(200.00)  # for the PRM1-Z8
+        STEPS_PER_REV_SLOW = c_double(20000.00)
         STEPS_PER_DEGREE = 2000.00/360.00
         gbox_ratio = c_double(1.0)  # gearbox ratio
         pitch = c_double(1.0)
@@ -115,6 +115,9 @@ def main():
             #for the speed scenario, we don't care about user input, it runs continously
             #will possibly change this part to implement the "Jog" function but need to find documentation
             #If we stick with this solution --> the 10 is arbitrary, need to find proper interval
+
+            #New solution: Use move jog --> this will allow us to specify how much the motor moves rather than just 
+            #how fast or slow --> this way if the user presses stop, then the motor can stop in between steps
             if(speed and not stop):
                 user_input = real_pos.value + 10
             elif(stop):
