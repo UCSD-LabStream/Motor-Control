@@ -38,6 +38,9 @@ def main():
         lib.CC_Open(serial_num)
         lib.CC_StartPolling(serial_num, c_int(200))
 
+        sleepTimerCounter = 0
+        sleepTime = 5
+
         # Home the device
         lib.CC_Home(serial_num)
         time.sleep(1)
@@ -87,18 +90,23 @@ def main():
                 print(f"An error occurred: {e}")
             
             user_input = int(data) #not sure this is how it works, need to characterize the motor
-            if user_input  < -2 or user_input > 2 or user_input is not int or user_input == 0: 
-                time.sleep(1000)
+            if sleepTimerCounter >= 9: sleepTime = 30
+            else: sleepTime = 5
+            if user_input  < -2 or user_input > 2 or user_input == 0: 
+                time.sleep(sleepTime)
+                sleepTimerCounter +=1
                 continue
+            sleepTimerCounter = 0
+            print("setting speed")
             # set a new speed and direction
             motor_direction = 1
             motor_speed = 0
             if user_input <=0: 
                 #reverse
-                motor_direction = 2
+                motor_direction = 1
             else: 
                 #forward
-                motor_direction = 1
+                motor_direction = 2
             if abs(user_input) == 2: 
                 #fast
                 motor_speed = 1.75
@@ -115,13 +123,13 @@ def main():
                                            0)
             #user_input = real_pos.value + 10
             
-            new_pos_dev = c_int()
-            lib.CC_GetDeviceUnitFromRealValue(serial_num,
-                                        new_pos_real,
-                                        byref(new_pos_dev),
-                                        0)
+            # new_pos_dev = c_int()
+            # lib.CC_GetDeviceUnitFromRealValue(serial_num,
+            #                             new_pos_real,
+            #                             byref(new_pos_dev),
+            #                             0)
             
-            print(f'{new_pos_real.value} in Device Units: {new_pos_dev.value}')
+            # print(f'{new_pos_real.value} in Device Units: {new_pos_dev.value}')
         
             response = requests.post(IN_PROGRESS_URL)
             # print(response.status_code)
@@ -138,20 +146,17 @@ def main():
             lib.CC_SetJogStepSize(serial_num, new_jog_dev)
             time.sleep(0.25)
             print("hey")
-            x = 12 if motor_speed == 1.75 else x = 83
-            while(x > 0):
+            dev_pos1 = c_int(lib.CC_GetPosition(serial_num))
+            real_pos = c_double()
+            lib.CC_GetRealValueFromDeviceUnit(serial_num,
+                                    dev_pos1,
+                                    byref(real_pos),
+                                    0)
+            if real_pos.value < 20.7 or real_pos.value > 0:
                 print("jogging")
                 lib.CC_MoveJog(serial_num, motor_direction)
                 time.sleep(0.95)
-                dev_pos1 = c_int(lib.CC_GetPosition(serial_num))
-                real_pos = c_double()
-                lib.CC_GetRealValueFromDeviceUnit(serial_num,
-                                        dev_pos1,
-                                        byref(real_pos),
-                                        0)
-                if real_pos.value > 20.7:
-                    break
-                x-=1
+           
             #lib.CC_MoveAbsolute(serial_num)
             dev_pos1 = c_int(lib.CC_GetPosition(serial_num))
             real_pos = c_double()
