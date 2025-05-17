@@ -33,8 +33,9 @@ def createMotor(serial_n, lib):
         sleepTime = 5
 
         # Home the device
-        lib.CC_Home(serial_num)
-        time.sleep(5)
+        home(serial_n, lib)
+        # lib.CC_Home(serial_num)
+        # time.sleep(10)
 
         # Set up the device to convert real units to device units
         STEPS_PER_REV = c_double(20000.00)  # for the PRM1-Z8
@@ -67,6 +68,45 @@ def createMotor(serial_n, lib):
     else:
         print("returning false")
         return False 
+    
+def home(serial_n, lib):
+    serial_num = c_char_p(serial_n)
+
+    # Open the device
+    if lib.TLI_BuildDeviceList() == 0:
+        lib.CC_Open(serial_num)
+        lib.CC_StartPolling(serial_num, c_int(200))
+
+        sleepTimerCounter = 0
+        sleepTime = 5
+
+        # Set up the device to convert real units to device units
+        STEPS_PER_REV = c_double(20000.00)  # for the PRM1-Z8
+        STEPS_PER_DEGREE = 2000.00/360.00
+        gbox_ratio = c_double(1.0)  # gearbox ratio
+        pitch = c_double(1.0)
+
+        # Apply these values to the device
+        lib.CC_SetMotorParamsExt(serial_num, STEPS_PER_REV, gbox_ratio, pitch)
+
+        # Get the device's current position in dev units
+        lib.CC_RequestPosition(serial_num)
+        time.sleep(0.2)
+        dev_pos = c_int(lib.CC_GetPosition(serial_num))
+        # Convert device units to real units
+        real_pos = c_double()
+        lib.CC_GetRealValueFromDeviceUnit(serial_num,
+                                          dev_pos,
+                                          byref(real_pos),
+                                          0)
+
+        # Home the device
+        lib.CC_Home(serial_num)
+        if real_pos.value < 7.5:
+            print("sleeping for 15")
+            time.sleep(15)
+        else:
+            time.sleep(min(28, float(real_pos.value) * 2.0))
     
 
 def Thorlabs_Motor(serial_n, motor_state, lib):
@@ -142,10 +182,16 @@ def Thorlabs_Motor(serial_n, motor_state, lib):
                             dev_pos1,
                             byref(real_pos),
                             0)
-    if real_pos.value < 20.7 or real_pos.value > 0:
-        print("jogging")
-        lib.CC_MoveJog(serial_num, motor_direction)
-        time.sleep(0.95)
+    if motor_direction == 2: 
+        if real_pos.value < 20.7:
+            print("jogging")
+            lib.CC_MoveJog(serial_num, motor_direction)
+            time.sleep(1.65)
+    elif motor_direction == 1: 
+        if real_pos.value > -0.1:
+            print("jogging back")
+            lib.CC_MoveJog(serial_num, motor_direction)
+            time.sleep(1.65)
     
     #lib.CC_MoveAbsolute(serial_num)
     dev_pos1 = c_int(lib.CC_GetPosition(serial_num))
@@ -154,7 +200,12 @@ def Thorlabs_Motor(serial_n, motor_state, lib):
                                 dev_pos1,
                                 byref(real_pos),
                                 0)
-    print(real_pos.value)
+    print("new Pos: " + str(real_pos.value))
+    if real_pos.value > 20.4 and motor_direction == 2:
+        return (1, real_pos.value)
+    
+    elif real_pos.value < -0.1 and motor_direction == 1:
+        return (2, real_pos.value)
     print("finished moving")
 
         # response = requests.post(DONE_URL)
@@ -165,7 +216,7 @@ def Thorlabs_Motor(serial_n, motor_state, lib):
     #reset position when done
     
 
-    return
+    return (0, real_pos.value)
 
 
 def closeMotor(serial_n, lib):
